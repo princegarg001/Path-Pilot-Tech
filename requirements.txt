@@ -1,0 +1,31 @@
+# ═══════════════════════════════════════════════════
+# PathPilot-AI Backend — Dependencies
+# ═══════════════════════════════════════════════════
+
+# Core Framework
+fastapi==0.115.12
+uvicorn[standard]==0.34.2
+python-dotenv==1.1.0
+
+# HTTP Client (async, for HuggingFace API)
+httpx==0.28.1
+
+# Data Validation
+pydantic==2.11.1
+pydantic-settings==2.9.1
+
+# NLP Utilities
+scikit-learn==1.6.1       # TF-IDF keyword extraction
+numpy==2.2.5
+
+# Caching
+cachetools==5.5.2
+
+# Rate Limiting
+slowapi==0.1.9
+
+# CORS & Security
+python-multipart==0.0.20
+
+# Logging
+loguru==0.7.3
