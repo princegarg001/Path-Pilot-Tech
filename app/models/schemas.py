@@ -152,6 +152,28 @@ class QuestionGenerationResponse(BaseModel):
 
 
 # ══════════════════════════════════════════════════════════════
+# /review-task
+# ══════════════════════════════════════════════════════════════
+
+class TaskReviewRequest(BaseModel):
+    """Input for task review endpoint."""
+    task_title: str = Field(..., description="Title of the task being reviewed")
+    task_description: str = Field(..., description="Full description of what the task requires")
+    task_category: Optional[str] = Field(None, description="Task category (Resume, Technical, etc.)")
+    submission_text: str = Field(..., min_length=10, description="User's description of what they did")
+    links: list[str] = Field(default_factory=list, description="Optional supporting links")
+
+
+class TaskReviewResponse(BaseModel):
+    """AI-generated task review output."""
+    score: int = Field(..., ge=1, le=5, description="Quality score (1-5)")
+    passed: bool = Field(..., description="Whether the score is > 3 (task can be marked complete)")
+    feedback: str = Field(..., description="Overall assessment of the submission")
+    strengths: list[str] = Field(default_factory=list, description="Things done well")
+    improvements: list[str] = Field(default_factory=list, description="Areas to improve")
+
+
+# ══════════════════════════════════════════════════════════════
 # HEALTH
 # ══════════════════════════════════════════════════════════════
 

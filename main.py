@@ -29,7 +29,7 @@ from app.models.schemas import HealthResponse
 from app.services.hf_client import hf_client
 
 # Import routers
-from app.routers import resume, ats, plan, questions
+from app.routers import resume, ats, plan, questions, review
 
 
 # ── Lifespan (startup/shutdown) ──
@@ -100,6 +100,7 @@ app.include_router(resume.router, tags=["Resume Analysis"])
 app.include_router(ats.router, tags=["ATS Scoring"])
 app.include_router(plan.router, tags=["Plan Generation"])
 app.include_router(questions.router, tags=["Interview Questions"])
+app.include_router(review.router, tags=["Task Review"])
 
 
 # ── Health Check ──
@@ -138,5 +139,6 @@ async def root():
             "POST /ats-score",
             "POST /generate-plan",
             "POST /generate-questions",
+            "POST /review-task",
         ],
     }
