@@ -174,6 +174,26 @@ class TaskReviewResponse(BaseModel):
 
 
 # ══════════════════════════════════════════════════════════════
+# /interview (Voice Agent)
+# ══════════════════════════════════════════════════════════════
+
+class InterviewMessage(BaseModel):
+    role: str = Field(..., description="user or assistant")
+    content: str = Field(..., description="The message text")
+
+class InterviewStateRequest(BaseModel):
+    resume_text: str = Field(..., description="User's parsed resume text")
+    history: list[InterviewMessage] = Field(default_factory=list, description="Conversation history")
+    current_question_index: int = Field(0, description="Current question number")
+
+class InterviewEvaluationResponse(BaseModel):
+    score: int = Field(..., ge=0, le=100, description="Overall interview performance score")
+    strengths: list[str] = Field(default_factory=list, description="What the candidate did well")
+    weaknesses: list[str] = Field(default_factory=list, description="Where the candidate is lacking")
+    improvements: list[str] = Field(default_factory=list, description="Specific actionable improvements")
+
+
+# ══════════════════════════════════════════════════════════════
 # HEALTH
 # ══════════════════════════════════════════════════════════════
 
