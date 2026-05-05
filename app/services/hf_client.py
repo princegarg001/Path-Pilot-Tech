@@ -158,27 +158,87 @@ class HFClient:
         use_cache: bool = True,
     ) -> str:
         """
-        Specialized call for text generation models (Mistral, etc.).
+        Call text generation using the OpenAI-compatible chat completions API.
+        This is the new HuggingFace Inference Providers endpoint.
         Returns the generated text string.
         """
+        # Use the chat completions endpoint instead of the old /models/ endpoint
+        chat_url = self._settings.hf_chat_url
+        client = await self._get_client()
+        max_retries = self._settings.max_retries
+        last_error = None
+
         payload = {
-            "inputs": prompt,
-            "parameters": {
-                "max_new_tokens": max_new_tokens,
-                "temperature": temperature,
-                "return_full_text": False,
-                "do_sample": True,
-            },
+            "model": model_id,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_new_tokens,
+            "temperature": temperature,
         }
 
-        result = await self.call(model_id, payload, use_cache=use_cache)
+        # Cache check
+        if use_cache:
+            cache_key = self._cache_key(model_id, payload)
+            if cache_key in self._cache:
+                logger.debug(f"Cache HIT for chat {model_id}")
+                return self._cache[cache_key]
 
-        # HF text generation returns [{"generated_text": "..."}]
-        if isinstance(result, list) and len(result) > 0:
-            return result[0].get("generated_text", "")
-        elif isinstance(result, dict):
-            return result.get("generated_text", str(result))
-        return str(result)
+        for attempt in range(1, max_retries + 1):
+            try:
+                logger.info(f"[HF Chat] Calling {model_id} (attempt {attempt}/{max_retries})")
+                response = await client.post(chat_url, json=payload)
+
+                if response.status_code == 200:
+                    result = response.json()
+                    text = result["choices"][0]["message"]["content"]
+                    # Cache successful response
+                    if use_cache:
+                        self._cache[cache_key] = text
+                    logger.info(f"[HF Chat] ✓ {model_id} responded successfully")
+                    return text
+
+                elif response.status_code == 503:
+                    body = response.json()
+                    wait_time = body.get("estimated_time", 20)
+                    logger.warning(
+                        f"[HF Chat] {model_id} is loading. "
+                        f"Waiting {wait_time:.0f}s (attempt {attempt}/{max_retries})"
+                    )
+                    await asyncio.sleep(min(wait_time, 60))
+                    continue
+
+                elif response.status_code == 429:
+                    wait_time = 10 * attempt
+                    logger.warning(f"[HF Chat] Rate limited. Waiting {wait_time}s")
+                    await asyncio.sleep(wait_time)
+                    continue
+
+                elif response.status_code == 422:
+                    error_detail = response.text
+                    logger.error(f"[HF Chat] Invalid input for {model_id}: {error_detail}")
+                    raise HFClientError(f"Invalid input: {error_detail}")
+
+                else:
+                    last_error = f"HTTP {response.status_code}: {response.text[:200]}"
+                    logger.error(f"[HF Chat] {model_id} error: {last_error}")
+
+            except httpx.TimeoutException:
+                last_error = "Request timed out (120s)"
+                logger.warning(f"[HF Chat] {model_id} timeout (attempt {attempt})")
+            except httpx.ConnectError:
+                last_error = "Connection failed"
+                logger.warning(f"[HF Chat] {model_id} connection error (attempt {attempt})")
+            except HFClientError:
+                raise
+            except Exception as e:
+                last_error = str(e)
+                logger.error(f"[HF Chat] {model_id} unexpected error: {e}")
+
+            if attempt < max_retries:
+                await asyncio.sleep(2 ** attempt)
+
+        raise HFClientError(
+            f"Failed to call {model_id} after {max_retries} attempts. Last error: {last_error}"
+        )
 
     async def close(self):
         """Close the HTTP client connection pool."""
@@ -189,3 +249,4 @@ class HFClient:
 
 # ── Singleton instance ──
 hf_client = HFClient()
+

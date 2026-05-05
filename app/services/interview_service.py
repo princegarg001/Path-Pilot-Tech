@@ -38,9 +38,9 @@ class InterviewService:
                 role = "Candidate" if msg.role == "user" else "Interviewer"
                 formatted_history += f"{role}: {msg.content}\n"
 
-        prompt = f"""<s>[INST] You are an expert technical and HR interviewer. 
+        prompt = f"""You are an expert technical and HR interviewer. 
 Your goal is to conduct a professional job interview based on the candidate's resume.
-This is question #{current_question_index + 1}.
+This is question #{current_question_index + 1} of 5.
 
 Candidate's Resume Extract:
 {resume_text[:2000]}
@@ -48,10 +48,10 @@ Candidate's Resume Extract:
 Conversation History:
 {formatted_history}
 
-Generate the NEXT single question to ask the candidate. 
+Generate the NEXT single interview question to ask the candidate.
 If this is the first question, start with a welcoming tone and ask them to introduce themselves or talk about a specific project on their resume.
-If there is history, follow up on their previous answer or move to a new topic from their resume.
-Do NOT output anything else except the exact text of the question. [/INST]"""
+If there is history, follow up on their previous answer or move to a new relevant topic from their resume.
+Output ONLY the question text, nothing else."""
 
         logger.info(f"Generating question #{current_question_index + 1} using model={model_id}")
 
@@ -88,7 +88,7 @@ Do NOT output anything else except the exact text of the question. [/INST]"""
             role = "Candidate" if msg.role == "user" else "Interviewer"
             formatted_history += f"{role}: {msg.content}\n"
 
-        prompt = f"""<s>[INST] You are an expert technical interviewer evaluating a candidate based on their interview transcript.
+        prompt = f"""You are an expert technical interviewer evaluating a candidate based on their interview transcript.
 
 Candidate's Resume Extract:
 {resume_text[:2000]}
@@ -98,12 +98,12 @@ Interview Transcript:
 
 Provide a comprehensive evaluation of the candidate's performance. You MUST return your answer in valid JSON format matching exactly this structure:
 {{
-  "score": 85, // integer 0-100
+  "score": 85,
   "strengths": ["Clear communication", "Good technical depth in Python"],
   "weaknesses": ["Lacked detail on system design", "Stumbled on behavioral questions"],
   "improvements": ["Practice STAR method", "Review scalable architectures"]
 }}
-Do NOT wrap the JSON in markdown code blocks. Just output the JSON. [/INST]"""
+Do NOT wrap the JSON in markdown code blocks. Just output the raw JSON object."""
 
         logger.info(f"Evaluating complete interview using model={model_id}...")
 
