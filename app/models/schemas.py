@@ -162,6 +162,7 @@ class TaskReviewRequest(BaseModel):
     task_category: Optional[str] = Field(None, description="Task category (Resume, Technical, etc.)")
     submission_text: str = Field(..., min_length=10, description="User's description of what they did")
     links: list[str] = Field(default_factory=list, description="Optional supporting links")
+    evidence_images: int = Field(0, ge=0, description="Number of screenshot images attached as evidence")
 
 
 class TaskReviewResponse(BaseModel):

@@ -25,6 +25,7 @@ TASK_REVIEW_PROMPT = """You are a strict but encouraging career coach reviewing 
 {submission_text}
 
 {links_section}
+{images_section}
 
 ## SCORING RUBRIC (1-5 scale)
 - **1 — Not Started:** No meaningful effort. Submission is blank, irrelevant, or just a copy of the task.
@@ -39,7 +40,9 @@ TASK_REVIEW_PROMPT = """You are a strict but encouraging career coach reviewing 
 3. Provide 2-3 specific strengths (things they did well)
 4. Provide 1-3 specific improvements (what to do better)
 5. The feedback should be encouraging but honest
-6. Consider the links provided (if any) as supporting evidence
+6. Consider the links provided (if any) as supporting evidence — having links shows initiative
+7. Consider attached screenshots/images (if any) as visual proof of work — this is strong evidence
+8. Give appropriate credit for multimodal evidence (text + links + images)
 
 ## OUTPUT FORMAT — RESPOND WITH ONLY THIS JSON, NOTHING ELSE:
 {{
@@ -75,12 +78,17 @@ async def _review_with_llm(request: TaskReviewRequest) -> TaskReviewResponse | N
         links_text = "\n".join(f"  - {link}" for link in request.links)
         links_section = f"**Supporting Links:**\n{links_text}"
 
+    images_section = ""
+    if request.evidence_images and request.evidence_images > 0:
+        images_section = f"**Attached Evidence:** {request.evidence_images} screenshot(s) of completed work were attached as visual proof."
+
     prompt = TASK_REVIEW_PROMPT.format(
         task_title=request.task_title,
         task_description=request.task_description,
         task_category=request.task_category or "General",
         submission_text=request.submission_text,
         links_section=links_section,
+        images_section=images_section,
     )
 
     raw_text = await hf_client.call_text_generation(
@@ -136,6 +144,8 @@ def _rule_based_review(request: TaskReviewRequest) -> TaskReviewResponse:
     text = request.submission_text.strip()
     word_count = len(text.split())
     has_links = bool(request.links)
+    has_images = request.evidence_images and request.evidence_images > 0
+    image_count = request.evidence_images or 0
 
     # Simple heuristic scoring
     score = 1
@@ -151,24 +161,36 @@ def _rule_based_review(request: TaskReviewRequest) -> TaskReviewResponse:
     if word_count >= 60:
         score = 4
         strengths.append("Thorough description of your work")
-    if word_count >= 100 and has_links:
+    if word_count >= 100 and (has_links or has_images):
         score = 5
         strengths.append("Comprehensive submission with supporting evidence")
 
     if has_links:
         score = min(5, score + 1)
         strengths.append("Included supporting links as evidence")
+    if has_images:
+        score = min(5, score + 1)
+        strengths.append(f"Attached {image_count} screenshot{'s' if image_count > 1 else ''} as visual proof")
 
     if word_count < 30:
         improvements.append("Provide more detail about what you actually did")
-    if not has_links:
-        improvements.append("Consider adding links to your work (GitHub, docs, etc.)")
+    if not has_links and not has_images:
+        improvements.append("Consider adding links or screenshots of your work")
     if word_count < 60:
         improvements.append("Describe specific steps you took and results you achieved")
 
+    evidence_parts = []
+    if has_images:
+        evidence_parts.append(f"{image_count} screenshot{'s' if image_count > 1 else ''}")
+    if has_links:
+        evidence_parts.append(f"{len(request.links)} link{'s' if len(request.links) > 1 else ''}")
+    evidence_str = (", ".join(evidence_parts) + ". ") if evidence_parts else ""
+
     feedback = (
         f"Your submission has {word_count} words. "
+        f"{'Includes ' + evidence_str if evidence_str else ''}"
         f"{'Good effort!' if score >= 3 else 'Try to be more detailed about your work.'} "
+        f"{'Great that you included visual evidence. ' if has_images else ''}"
         f"{'Great that you included supporting links.' if has_links else ''}"
     ).strip()
 
